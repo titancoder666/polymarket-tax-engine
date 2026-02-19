@@ -36,42 +36,29 @@ export default function Home() {
       setLoadingStage('Fetching trade history for tax calculation...')
       setTradeCount(0)
 
-      // Use streaming API for trade fetching (supports 70K+ trades)
+      // Fetch trades window-by-window via API (supports 70K+ trades)
       const trades: PolymarketTrade[] = []
-      const resp = await fetch(`/api/trades?wallet=${encodeURIComponent(profileData.wallet)}`)
-      const reader = resp.body?.getReader()
-      const decoder = new TextDecoder()
-      let buffer = ''
+      let endTs: number | undefined = undefined
+      const MAX_WINDOWS = 50
 
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) break
-          buffer += decoder.decode(value, { stream: true })
+      for (let w = 0; w < MAX_WINDOWS; w++) {
+        const tradeUrl: string = `/api/trades?wallet=${encodeURIComponent(profileData.wallet)}${endTs !== undefined ? `&end=${endTs}` : ''}`
+        const resp = await fetch(tradeUrl)
+        const data = await resp.json()
 
-          const lines = buffer.split('\n\n')
-          buffer = lines.pop() || ''
+        if (data.error) throw new Error(data.error)
+        if (data.count === 0) break
 
-          for (const line of lines) {
-            if (!line.startsWith('data: ')) continue
-            try {
-              const msg = JSON.parse(line.slice(6))
-              if (msg.type === 'progress') {
-                setLoadingStage(`Fetching trades... Window ${msg.window}: ${msg.totalTrades.toLocaleString()} trades found`)
-                setTradeCount(msg.totalTrades)
-              } else if (msg.type === 'trades') {
-                trades.push(...msg.trades)
-              } else if (msg.type === 'error') {
-                throw new Error(msg.message)
-              }
-            } catch (e) {
-              if (e instanceof Error && e.message !== 'Unexpected end of JSON input') throw e
-            }
-          }
-        }
+        trades.push(...data.trades)
+        setTradeCount(trades.length)
+        setLoadingStage(`Fetching trades... ${trades.length.toLocaleString()} found (window ${w + 1})`)
+
+        if (data.oldestTimestamp === null) break
+        endTs = data.oldestTimestamp - 1
       }
 
       if (trades.length > 0) {
+        trades.sort((a: PolymarketTrade, b: PolymarketTrade) => a.timestamp - b.timestamp)
         setLoadingStage(`Calculating FIFO cost basis for ${trades.length.toLocaleString()} trades...`)
         setTradeCount(trades.length)
         const records = calculateTaxRecords(trades)
