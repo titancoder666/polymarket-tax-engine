@@ -237,7 +237,17 @@ export async function getUserTrades(usernameOrWallet: string): Promise<Polymarke
           }
         }
         
-        const trades = activities.filter((t: any) => t.type === 'TRADE');
+        // Include TRADE and REDEEM (settlement) activities  
+        const trades = activities.filter((t: any) => t.type === 'TRADE' || (t.type === 'REDEEM' && t.usdcSize > 0));
+        // Convert REDEEM to SELL at $1.00 per share (winning outcome redeemed)
+        for (const t of trades) {
+          if (t.type === 'REDEEM') {
+            t.side = 'SELL';
+            t.price = 1.0;
+            t.size = t.usdcSize; // shares = payout (1:1 for winners)
+            t.outcome = t.outcome || '__REDEEM__'; // mark for later matching
+          }
+        }
         allTrades.push(...trades);
         windowTradeCount += trades.length;
         
@@ -265,6 +275,33 @@ export async function getUserTrades(usernameOrWallet: string): Promise<Polymarke
  * Calculate tax records from trades using FIFO method
  */
 export function calculateTaxRecords(trades: PolymarketTrade[]): TaxRecord[] {
+  // For REDEEM entries with no outcome, find which outcome had net buys for this conditionId
+  const buysByCondition = new Map<string, Map<string, number>>();
+  for (const t of trades) {
+    if (t.side === 'BUY' && t.outcome && t.outcome !== '__REDEEM__') {
+      if (!buysByCondition.has(t.conditionId)) buysByCondition.set(t.conditionId, new Map());
+      const m = buysByCondition.get(t.conditionId)!;
+      m.set(t.outcome, (m.get(t.outcome) || 0) + t.size);
+    }
+  }
+  
+  // Assign outcome to REDEEMs: pick the outcome with the most net buys
+  for (const t of trades) {
+    if (t.outcome === '__REDEEM__' && t.conditionId) {
+      const outcomes = buysByCondition.get(t.conditionId);
+      if (outcomes && outcomes.size > 0) {
+        let bestOutcome = '';
+        let bestSize = 0;
+        for (const [outcome, size] of outcomes) {
+          if (size > bestSize) { bestOutcome = outcome; bestSize = size; }
+        }
+        t.outcome = bestOutcome || 'Yes';
+      } else {
+        t.outcome = 'Yes'; // fallback
+      }
+    }
+  }
+
   const positionKey = (t: PolymarketTrade) => `${t.conditionId}-${t.outcome}`;
   const grouped = new Map<string, PolymarketTrade[]>();
   
