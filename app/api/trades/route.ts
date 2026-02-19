@@ -3,7 +3,8 @@ import axios from 'axios';
 
 const DATA_API = 'https://data-api.polymarket.com';
 
-export const maxDuration = 60; // Vercel max for hobby
+export const maxDuration = 60;
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   const wallet = request.nextUrl.searchParams.get('wallet');
@@ -93,7 +94,7 @@ export async function GET(request: NextRequest) {
         allTrades.sort((a: any, b: any) => a.timestamp - b.timestamp);
 
         // Send trades in chunks to avoid huge single messages
-        const CHUNK = 5000;
+        const CHUNK = 2000;
         for (let i = 0; i < allTrades.length; i += CHUNK) {
           send({
             type: 'trades',
