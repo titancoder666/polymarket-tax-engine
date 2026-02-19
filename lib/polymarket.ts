@@ -58,19 +58,70 @@ async function resolveUsernameToWallet(username: string): Promise<string> {
 
   const cleanUsername = username.startsWith('@') ? username.slice(1) : username;
   
-  console.log(`Resolving username "${cleanUsername}" via server-side API...`);
+  console.log(`Resolving username "${cleanUsername}"...`);
+  
+  const isBrowser = typeof window !== 'undefined';
   
   try {
-    // Use our own API route to resolve username (avoids CORS issues)
-    const response = await axios.get(`/api/resolve?username=${encodeURIComponent(cleanUsername)}`);
+    let html: string;
     
-    if (response.data.wallet) {
-      console.log(`Resolved "${cleanUsername}" to wallet: ${response.data.wallet}`);
-      return response.data.wallet;
+    if (isBrowser) {
+      // In browser: use our API route to avoid CORS
+      const response = await axios.get(`/api/resolve?username=${encodeURIComponent(cleanUsername)}`);
+      if (response.data.wallet) {
+        console.log(`Resolved "${cleanUsername}" to wallet: ${response.data.wallet}`);
+        return response.data.wallet;
+      }
+      throw new Error(response.data.error || 'Unknown error resolving username');
     }
     
-    throw new Error(response.data.error || 'Unknown error resolving username');
+    // Server-side / CLI: fetch Polymarket profile page directly
+    const response = await axios.get(
+      `https://polymarket.com/profile/@${encodeURIComponent(cleanUsername)}`,
+      {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
+        maxRedirects: 5,
+        timeout: 15000
+      }
+    );
+    
+    html = typeof response.data === 'string' ? response.data : '';
+    
+    // Check for 404
+    if (html.includes('"page":"/404"') || html.includes('404 Page Not Found')) {
+      throw new Error(
+        `Profile "${cleanUsername}" does not exist on Polymarket. ` +
+        `Check for typos or try your wallet address (starts with 0x). ` +
+        `Find it at: polymarket.com → Profile → Settings → Wallet Address`
+      );
+    }
+    
+    // Extract proxyWallet from __NEXT_DATA__ JSON
+    const walletMatch = html.match(/"proxyWallet":"(0x[a-fA-F0-9]{40})"/);
+    if (walletMatch) {
+      const wallet = walletMatch[1].toLowerCase();
+      console.log(`Resolved "${cleanUsername}" to wallet: ${wallet}`);
+      return wallet;
+    }
+    
+    // Fallback: try proxyAddress
+    const proxyMatch = html.match(/"proxyAddress":"(0x[a-fA-F0-9]{40})"/);
+    if (proxyMatch) {
+      const wallet = proxyMatch[1].toLowerCase();
+      console.log(`Resolved "${cleanUsername}" to wallet: ${wallet}`);
+      return wallet;
+    }
+    
+    throw new Error(
+      `Could not extract wallet address from profile page for "${cleanUsername}". ` +
+      `Please enter your wallet address directly (starts with 0x). ` +
+      `Find it at: polymarket.com → Profile → Settings`
+    );
   } catch (error: any) {
+    if (error.message && (error.message.includes('does not exist') || error.message.includes('Could not extract'))) {
+      throw error;
+    }
+    // If browser API route returned an error
     if (error.response?.data?.error) {
       throw new Error(error.response.data.error);
     }
@@ -98,7 +149,7 @@ export async function getUserTrades(usernameOrWallet: string): Promise<Polymarke
   const allTrades: PolymarketTrade[] = [];
   const BATCH_SIZE = 500;
   const MAX_OFFSET = 3000; // Polymarket API hard limit per window
-  const MAX_WINDOWS = 50; // Safety limit: 50 windows × ~3500 = ~175,000 activities max
+  const MAX_WINDOWS = 20; // Safety limit: 20 windows × ~3500 = ~70,000 activities max
   let endTimestamp: number | undefined = undefined;
   
   for (let window = 0; window < MAX_WINDOWS; window++) {
