@@ -107,53 +107,46 @@ export default function Home() {
           <>
             <div className="bg-slate-800 rounded-lg p-6 mb-6">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-2xl font-bold">{profile.username}</h2>
+                <div>
+                  <h2 className="text-2xl font-bold">{profile.username}</h2>
+                  {profile.joinDate && (
+                    <span className="text-xs text-gray-500">Joined {new Date(profile.joinDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}{profile.views > 0 ? ` · ${(profile.views / 1000).toFixed(1)}K views` : ''}</span>
+                  )}
+                </div>
                 <span className="text-xs text-gray-500 font-mono">{profile.wallet}</span>
               </div>
               
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                 <div className="bg-slate-900 rounded-lg p-4">
-                  <div className="text-xs text-gray-400 uppercase mb-1">Markets Traded</div>
-                  <div className="text-2xl font-bold">{profile.marketsTraded}</div>
+                  <div className="text-xs text-gray-400 uppercase mb-1">Positions Value</div>
+                  <div className="text-2xl font-bold">{fmt(profile.positionsValue)}</div>
                 </div>
                 <div className="bg-slate-900 rounded-lg p-4">
-                  <div className="text-xs text-gray-400 uppercase mb-1">Portfolio Value</div>
-                  <div className="text-2xl font-bold">{fmt(profile.portfolioValue)}</div>
+                  <div className="text-xs text-gray-400 uppercase mb-1">Biggest Win</div>
+                  <div className="text-2xl font-bold text-green-400">{fmt(profile.largestWin)}</div>
                 </div>
                 <div className="bg-slate-900 rounded-lg p-4">
-                  <div className="text-xs text-gray-400 uppercase mb-1">Total Volume</div>
-                  <div className="text-2xl font-bold">{fmt(profile.totalInitialValue)}</div>
+                  <div className="text-xs text-gray-400 uppercase mb-1">Predictions</div>
+                  <div className="text-2xl font-bold">{profile.predictions}</div>
+                </div>
+                <div className="bg-slate-900 rounded-lg p-4">
+                  <div className="text-xs text-gray-400 uppercase mb-1">Volume</div>
+                  <div className="text-2xl font-bold">{fmt(profile.totalVolume)}</div>
                 </div>
                 <div className="bg-slate-900 rounded-lg p-4">
                   <div className="text-xs text-gray-400 uppercase mb-1">All-Time P&L</div>
-                  <div className={`text-2xl font-bold ${profile.totalCashPnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                    {fmt(profile.totalCashPnl)}
+                  <div className={`text-2xl font-bold ${profile.allTimePnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    {fmt(profile.allTimePnl)}
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* P&L Breakdown */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              <div className="bg-slate-800 rounded-lg p-6">
-                <div className="text-sm text-gray-400 mb-1">Realized P&L</div>
-                <div className={`text-3xl font-bold ${profile.totalRealizedPnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                  {fmt(profile.totalRealizedPnl)}
-                </div>
-                <p className="text-xs text-gray-500 mt-1">From closed positions</p>
-              </div>
-              <div className="bg-slate-800 rounded-lg p-6">
-                <div className="text-sm text-gray-400 mb-1">Unrealized P&L</div>
-                <div className={`text-3xl font-bold ${profile.totalUnrealizedPnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                  {fmt(profile.totalUnrealizedPnl)}
-                </div>
-                <p className="text-xs text-gray-500 mt-1">Open positions</p>
-              </div>
-              <div className="bg-slate-800 rounded-lg p-6">
-                <div className="text-sm text-gray-400 mb-1">Current Holdings</div>
-                <div className="text-3xl font-bold">{fmt(profile.totalCurrentValue)}</div>
-                <p className="text-xs text-gray-500 mt-1">Total position value</p>
-              </div>
+            {/* Data source note */}
+            <div className="bg-slate-800/50 rounded-lg p-3 mb-6 text-center">
+              <p className="text-xs text-gray-500">
+                📊 Profile stats pulled directly from Polymarket — same numbers shown on their site
+              </p>
             </div>
 
             {/* Positions Table */}

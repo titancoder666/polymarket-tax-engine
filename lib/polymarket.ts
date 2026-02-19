@@ -51,13 +51,18 @@ export interface ProfileSummary {
   username: string;
   wallet: string;
   positions: PositionSummary[];
-  totalCashPnl: number;
+  // From Polymarket's own profile data (source of truth)
+  allTimePnl: number;
+  totalVolume: number;
+  predictions: number;
+  largestWin: number;
+  positionsValue: number;
+  joinDate: string;
+  views: number;
+  // Calculated from positions API
   totalRealizedPnl: number;
   totalInitialValue: number;
   totalCurrentValue: number;
-  totalUnrealizedPnl: number;
-  marketsTraded: number;
-  portfolioValue: number;
 }
 
 /**
@@ -110,12 +115,29 @@ async function resolveUsernameToWallet(username: string): Promise<string> {
 }
 
 /**
- * Fetch user profile with positions P&L from Polymarket's positions API.
- * This is the SOURCE OF TRUTH — same data Polymarket's UI uses.
+ * Fetch user profile with P&L from Polymarket's own dehydrated page data.
+ * This extracts the EXACT same numbers shown on the Polymarket profile page.
  */
 export async function getUserProfile(usernameOrWallet: string): Promise<ProfileSummary> {
-  const wallet = await resolveUsernameToWallet(usernameOrWallet);
   const cleanUsername = usernameOrWallet.startsWith('0x') ? '' : usernameOrWallet.replace(/^@/, '');
+  const isBrowser = typeof window !== 'undefined';
+  
+  let wallet: string;
+  let profileStats: any = null;
+  let profileInfo: any = null;
+  let positionsValue: number | null = null;
+  
+  if (isBrowser && cleanUsername) {
+    // Browser: use API route which returns enriched data from SSR page
+    const resolveResp = await axios.get(`/api/resolve?username=${encodeURIComponent(cleanUsername)}`);
+    if (!resolveResp.data.wallet) throw new Error(resolveResp.data.error || 'Failed to resolve username');
+    wallet = resolveResp.data.wallet;
+    profileStats = resolveResp.data.stats; // { volume, pnl }
+    profileInfo = resolveResp.data.profile; // { predictions, largestWin, views, joinDate }
+    positionsValue = resolveResp.data.positionsValue;
+  } else {
+    wallet = await resolveUsernameToWallet(usernameOrWallet);
+  }
   
   console.log(`Fetching positions for wallet: ${wallet}`);
   
@@ -153,32 +175,25 @@ export async function getUserProfile(usernameOrWallet: string): Promise<ProfileS
     offset += BATCH_SIZE;
   }
   
-  // Calculate totals
-  const totalCashPnl = allPositions.reduce((sum, p) => sum + p.cashPnl, 0);
   const totalRealizedPnl = allPositions.reduce((sum, p) => sum + p.realizedPnl, 0);
   const totalInitialValue = allPositions.reduce((sum, p) => sum + p.initialValue, 0);
   const totalCurrentValue = allPositions.reduce((sum, p) => sum + p.currentValue, 0);
-  const totalUnrealizedPnl = totalCurrentValue - totalInitialValue;
-  
-  // Count unique markets
-  const uniqueMarkets = new Set(allPositions.map(p => p.conditionId));
-  
-  // Portfolio = current value of open positions
-  const portfolioValue = allPositions
-    .filter(p => p.size > 0)
-    .reduce((sum, p) => sum + p.currentValue, 0);
   
   return {
     username: cleanUsername || wallet,
     wallet,
     positions: allPositions,
-    totalCashPnl: Math.round(totalCashPnl * 100) / 100,
+    // Use Polymarket's own numbers when available (source of truth)
+    allTimePnl: profileStats?.pnl ?? allPositions.reduce((s, p) => s + p.cashPnl, 0),
+    totalVolume: profileStats?.volume ?? totalInitialValue,
+    predictions: profileInfo?.predictions ?? new Set(allPositions.map(p => p.conditionId)).size,
+    largestWin: profileInfo?.largestWin ?? 0,
+    positionsValue: positionsValue ?? totalCurrentValue,
+    joinDate: profileInfo?.joinDate ?? '',
+    views: profileInfo?.views ?? 0,
     totalRealizedPnl: Math.round(totalRealizedPnl * 100) / 100,
     totalInitialValue: Math.round(totalInitialValue * 100) / 100,
     totalCurrentValue: Math.round(totalCurrentValue * 100) / 100,
-    totalUnrealizedPnl: Math.round(totalUnrealizedPnl * 100) / 100,
-    marketsTraded: uniqueMarkets.size,
-    portfolioValue: Math.round(portfolioValue * 100) / 100,
   };
 }
 
