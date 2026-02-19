@@ -56,11 +56,31 @@ async function resolveUsernameToWallet(username: string): Promise<string> {
     return username.toLowerCase();
   }
 
-  // Approach 1: Scan recent trades to find matching name
-  // This works because the trades endpoint includes a "name" field
-  console.log(`Resolving username "${username}" to wallet address...`);
+  // Step 1: Check if this profile exists on Polymarket
+  console.log(`Checking if profile "${username}" exists on Polymarket...`);
+  try {
+    const profileCheck = await axios.get(`https://polymarket.com/profile/${encodeURIComponent(username)}`, {
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+      maxRedirects: 5
+    });
+    const html = typeof profileCheck.data === 'string' ? profileCheck.data : '';
+    if (html.includes('404 Page Not Found') || html.includes("page you're looking for doesn't exist")) {
+      throw new Error(
+        `Profile "${username}" does not exist on Polymarket. ` +
+        `Check for typos or try your wallet address (starts with 0x). ` +
+        `Find it at: polymarket.com → Profile → Settings → Wallet Address`
+      );
+    }
+  } catch (error: any) {
+    if (error.message && error.message.includes('does not exist')) throw error;
+    // If we can't check the profile page, continue trying to resolve
+    console.warn('Could not verify profile existence, continuing...');
+  }
+
+  // Step 2: Scan recent trades to find matching name
+  console.log(`Scanning recent trades to find wallet for "${username}"...`);
   
-  const SCAN_BATCHES = 20; // Scan up to 10,000 recent trades
+  const SCAN_BATCHES = 40; // Scan up to 20,000 recent trades
   const BATCH_SIZE = 500;
   
   for (let i = 0; i < SCAN_BATCHES; i++) {
@@ -89,9 +109,10 @@ async function resolveUsernameToWallet(username: string): Promise<string> {
   }
   
   throw new Error(
-    `Could not resolve username "${username}" to a wallet address. ` +
-    `Try entering your Polymarket wallet address directly (starts with 0x). ` +
-    `You can find it on your Polymarket profile page.`
+    `Found profile "${username}" but couldn't resolve wallet from recent trades. ` +
+    `This user may not have traded recently. ` +
+    `Please enter your wallet address directly (starts with 0x). ` +
+    `Find it at: polymarket.com → Profile → Settings`
   );
 }
 
