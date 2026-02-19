@@ -48,7 +48,7 @@ export interface PositionSummary {
 
 /**
  * Resolve a Polymarket username/slug to a wallet address.
- * Tries multiple approaches.
+ * Uses the Polymarket profile page SSR data which includes the proxyWallet.
  */
 async function resolveUsernameToWallet(username: string): Promise<string> {
   // If already a wallet address, return as-is
@@ -56,64 +56,64 @@ async function resolveUsernameToWallet(username: string): Promise<string> {
     return username.toLowerCase();
   }
 
-  // Step 1: Check if this profile exists on Polymarket
-  console.log(`Checking if profile "${username}" exists on Polymarket...`);
+  // Clean up username (remove @ prefix if present)
+  const cleanUsername = username.startsWith('@') ? username.slice(1) : username;
+  
+  console.log(`Resolving username "${cleanUsername}" via Polymarket profile page...`);
+  
   try {
-    const profileCheck = await axios.get(`https://polymarket.com/profile/${encodeURIComponent(username)}`, {
-      headers: { 'User-Agent': 'Mozilla/5.0' },
-      maxRedirects: 5
-    });
-    const html = typeof profileCheck.data === 'string' ? profileCheck.data : '';
-    if (html.includes('404 Page Not Found') || html.includes("page you're looking for doesn't exist")) {
+    // Fetch the profile page - Polymarket SSR includes wallet in __NEXT_DATA__
+    const response = await axios.get(
+      `https://polymarket.com/profile/@${encodeURIComponent(cleanUsername)}`,
+      {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
+        maxRedirects: 5,
+        timeout: 15000
+      }
+    );
+    
+    const html = typeof response.data === 'string' ? response.data : '';
+    
+    // Check for 404
+    if (html.includes('"page":"/404"') || html.includes('404 Page Not Found')) {
       throw new Error(
-        `Profile "${username}" does not exist on Polymarket. ` +
+        `Profile "${cleanUsername}" does not exist on Polymarket. ` +
         `Check for typos or try your wallet address (starts with 0x). ` +
         `Find it at: polymarket.com → Profile → Settings → Wallet Address`
       );
     }
-  } catch (error: any) {
-    if (error.message && error.message.includes('does not exist')) throw error;
-    // If we can't check the profile page, continue trying to resolve
-    console.warn('Could not verify profile existence, continuing...');
-  }
-
-  // Step 2: Scan recent trades to find matching name
-  console.log(`Scanning recent trades to find wallet for "${username}"...`);
-  
-  const SCAN_BATCHES = 40; // Scan up to 20,000 recent trades
-  const BATCH_SIZE = 500;
-  
-  for (let i = 0; i < SCAN_BATCHES; i++) {
-    try {
-      const response = await axios.get(`${DATA_API}/trades`, {
-        params: { limit: BATCH_SIZE, offset: i * BATCH_SIZE }
-      });
-      
-      const trades = response.data;
-      if (!trades || trades.length === 0) break;
-      
-      // Check for matching username (case-insensitive)
-      const match = trades.find((t: any) => 
-        t.name && t.name.toLowerCase() === username.toLowerCase()
-      );
-      
-      if (match) {
-        console.log(`Resolved "${username}" to wallet: ${match.proxyWallet}`);
-        return match.proxyWallet.toLowerCase();
-      }
-      
-      await new Promise(resolve => setTimeout(resolve, 50));
-    } catch (error) {
-      console.warn(`Batch ${i} failed:`, error);
+    
+    // Extract proxyWallet from __NEXT_DATA__ JSON
+    const walletMatch = html.match(/"proxyWallet":"(0x[a-fA-F0-9]{40})"/);
+    if (walletMatch) {
+      const wallet = walletMatch[1].toLowerCase();
+      console.log(`Resolved "${cleanUsername}" to wallet: ${wallet}`);
+      return wallet;
     }
+    
+    // Fallback: try proxyAddress
+    const proxyMatch = html.match(/"proxyAddress":"(0x[a-fA-F0-9]{40})"/);
+    if (proxyMatch) {
+      const wallet = proxyMatch[1].toLowerCase();
+      console.log(`Resolved "${cleanUsername}" to wallet: ${wallet}`);
+      return wallet;
+    }
+    
+    throw new Error(
+      `Could not extract wallet address from profile page for "${cleanUsername}". ` +
+      `Please enter your wallet address directly (starts with 0x). ` +
+      `Find it at: polymarket.com → Profile → Settings`
+    );
+  } catch (error: any) {
+    if (error.message && (error.message.includes('does not exist') || error.message.includes('Could not extract'))) {
+      throw error;
+    }
+    throw new Error(
+      `Failed to resolve username "${cleanUsername}": ${error.message}. ` +
+      `Please enter your wallet address directly (starts with 0x). ` +
+      `Find it at: polymarket.com → Profile → Settings`
+    );
   }
-  
-  throw new Error(
-    `Found profile "${username}" but couldn't resolve wallet from recent trades. ` +
-    `This user may not have traded recently. ` +
-    `Please enter your wallet address directly (starts with 0x). ` +
-    `Find it at: polymarket.com → Profile → Settings`
-  );
 }
 
 /**
@@ -127,12 +127,15 @@ export async function getUserTrades(usernameOrWallet: string): Promise<Polymarke
   console.log(`Using wallet: ${wallet}`);
   
   // Step 2: Fetch ALL trades using the activity endpoint (server-side filtered!)
+  // Note: Polymarket API has a max offset of 3000 for the activity endpoint.
+  // We fetch up to that limit. For users with >3500 activities, some older trades
+  // will be missing - this is a Polymarket API limitation.
   const allTrades: PolymarketTrade[] = [];
   const BATCH_SIZE = 500;
-  const MAX_BATCHES = 200; // Up to 100,000 trades
+  const MAX_OFFSET = 3000; // Polymarket API hard limit
   let offset = 0;
   
-  for (let batch = 0; batch < MAX_BATCHES; batch++) {
+  for (let batch = 0; offset <= MAX_OFFSET; batch++) {
     console.log(`Batch ${batch + 1}: Fetching ${BATCH_SIZE} trades (offset ${offset})...`);
     
     try {
@@ -168,10 +171,19 @@ export async function getUserTrades(usernameOrWallet: string): Promise<Polymarke
       // Small delay to avoid rate limiting
       await new Promise(resolve => setTimeout(resolve, 100));
       
-    } catch (error) {
+    } catch (error: any) {
+      // Handle the max offset exceeded error gracefully
+      if (error?.response?.status === 400 && error?.response?.data?.error?.includes('offset')) {
+        console.log(`Reached Polymarket API offset limit at offset ${offset}. This is the maximum history available.`);
+        break;
+      }
       console.error('Error fetching trades:', error);
       throw new Error(`Failed to fetch trades: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
+  }
+  
+  if (offset > MAX_OFFSET && allTrades.length > 0) {
+    console.log(`⚠️ Note: Only the most recent ~${allTrades.length} trades were fetched due to API pagination limits.`);
   }
   
   console.log(`Total trades fetched: ${allTrades.length}`);
