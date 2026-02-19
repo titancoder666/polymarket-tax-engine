@@ -56,57 +56,23 @@ async function resolveUsernameToWallet(username: string): Promise<string> {
     return username.toLowerCase();
   }
 
-  // Clean up username (remove @ prefix if present)
   const cleanUsername = username.startsWith('@') ? username.slice(1) : username;
   
-  console.log(`Resolving username "${cleanUsername}" via Polymarket profile page...`);
+  console.log(`Resolving username "${cleanUsername}" via server-side API...`);
   
   try {
-    // Fetch the profile page - Polymarket SSR includes wallet in __NEXT_DATA__
-    const response = await axios.get(
-      `https://polymarket.com/profile/@${encodeURIComponent(cleanUsername)}`,
-      {
-        headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' },
-        maxRedirects: 5,
-        timeout: 15000
-      }
-    );
+    // Use our own API route to resolve username (avoids CORS issues)
+    const response = await axios.get(`/api/resolve?username=${encodeURIComponent(cleanUsername)}`);
     
-    const html = typeof response.data === 'string' ? response.data : '';
-    
-    // Check for 404
-    if (html.includes('"page":"/404"') || html.includes('404 Page Not Found')) {
-      throw new Error(
-        `Profile "${cleanUsername}" does not exist on Polymarket. ` +
-        `Check for typos or try your wallet address (starts with 0x). ` +
-        `Find it at: polymarket.com → Profile → Settings → Wallet Address`
-      );
+    if (response.data.wallet) {
+      console.log(`Resolved "${cleanUsername}" to wallet: ${response.data.wallet}`);
+      return response.data.wallet;
     }
     
-    // Extract proxyWallet from __NEXT_DATA__ JSON
-    const walletMatch = html.match(/"proxyWallet":"(0x[a-fA-F0-9]{40})"/);
-    if (walletMatch) {
-      const wallet = walletMatch[1].toLowerCase();
-      console.log(`Resolved "${cleanUsername}" to wallet: ${wallet}`);
-      return wallet;
-    }
-    
-    // Fallback: try proxyAddress
-    const proxyMatch = html.match(/"proxyAddress":"(0x[a-fA-F0-9]{40})"/);
-    if (proxyMatch) {
-      const wallet = proxyMatch[1].toLowerCase();
-      console.log(`Resolved "${cleanUsername}" to wallet: ${wallet}`);
-      return wallet;
-    }
-    
-    throw new Error(
-      `Could not extract wallet address from profile page for "${cleanUsername}". ` +
-      `Please enter your wallet address directly (starts with 0x). ` +
-      `Find it at: polymarket.com → Profile → Settings`
-    );
+    throw new Error(response.data.error || 'Unknown error resolving username');
   } catch (error: any) {
-    if (error.message && (error.message.includes('does not exist') || error.message.includes('Could not extract'))) {
-      throw error;
+    if (error.response?.data?.error) {
+      throw new Error(error.response.data.error);
     }
     throw new Error(
       `Failed to resolve username "${cleanUsername}": ${error.message}. ` +
@@ -126,64 +92,78 @@ export async function getUserTrades(usernameOrWallet: string): Promise<Polymarke
   const wallet = await resolveUsernameToWallet(usernameOrWallet);
   console.log(`Using wallet: ${wallet}`);
   
-  // Step 2: Fetch ALL trades using the activity endpoint (server-side filtered!)
-  // Note: Polymarket API has a max offset of 3000 for the activity endpoint.
-  // We fetch up to that limit. For users with >3500 activities, some older trades
-  // will be missing - this is a Polymarket API limitation.
+  // Step 2: Fetch ALL trades using the activity endpoint with cursor-based pagination.
+  // The API has a max offset of 3000, so we use the 'end' timestamp parameter
+  // to paginate through the full history in windows.
   const allTrades: PolymarketTrade[] = [];
   const BATCH_SIZE = 500;
-  const MAX_OFFSET = 3000; // Polymarket API hard limit
-  let offset = 0;
+  const MAX_OFFSET = 3000; // Polymarket API hard limit per window
+  const MAX_WINDOWS = 50; // Safety limit: 50 windows × ~3500 = ~175,000 activities max
+  let endTimestamp: number | undefined = undefined;
   
-  for (let batch = 0; offset <= MAX_OFFSET; batch++) {
-    console.log(`Batch ${batch + 1}: Fetching ${BATCH_SIZE} trades (offset ${offset})...`);
+  for (let window = 0; window < MAX_WINDOWS; window++) {
+    let offset = 0;
+    let windowTradeCount = 0;
+    let oldestTimestamp: number | undefined = undefined;
     
-    try {
-      const response = await axios.get(`${DATA_API}/activity`, {
-        params: {
+    for (let batch = 0; offset <= MAX_OFFSET; batch++) {
+      const globalBatch = window * 10 + batch + 1;
+      console.log(`Batch ${globalBatch}: offset ${offset}${endTimestamp ? `, end=${endTimestamp}` : ''}...`);
+      
+      try {
+        const params: any = {
           user: wallet,
           limit: BATCH_SIZE,
           offset: offset
+        };
+        if (endTimestamp !== undefined) {
+          params.end = endTimestamp;
         }
-      });
-      
-      const trades = response.data;
-      
-      if (!Array.isArray(trades) || trades.length === 0) {
-        console.log('No more trades available');
-        break;
+        
+        const response = await axios.get(`${DATA_API}/activity`, { params });
+        const activities = response.data;
+        
+        if (!Array.isArray(activities) || activities.length === 0) {
+          console.log('No more activities available');
+          // Signal to break outer loop too
+          oldestTimestamp = undefined;
+          break;
+        }
+        
+        // Track oldest timestamp for next window
+        for (const a of activities) {
+          if (oldestTimestamp === undefined || a.timestamp < oldestTimestamp) {
+            oldestTimestamp = a.timestamp;
+          }
+        }
+        
+        // Only include TRADE type entries
+        const trades = activities.filter((t: any) => t.type === 'TRADE');
+        allTrades.push(...trades);
+        windowTradeCount += trades.length;
+        
+        console.log(`  +${trades.length} trades (window: ${windowTradeCount}, total: ${allTrades.length})`);
+        
+        if (activities.length < BATCH_SIZE) break;
+        offset += BATCH_SIZE;
+        
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+      } catch (error: any) {
+        if (error?.response?.status === 400 && error?.response?.data?.error?.includes('offset')) {
+          console.log(`  Reached offset limit, will continue with timestamp cursor...`);
+          break;
+        }
+        throw new Error(`Failed to fetch trades: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
-      
-      // Only include TRADE type entries (not deposits/withdrawals)
-      const tradeTrades = trades.filter((t: any) => t.type === 'TRADE');
-      allTrades.push(...tradeTrades);
-      
-      console.log(`Got ${tradeTrades.length} trades in this batch (total: ${allTrades.length})`);
-      
-      // If we got fewer than requested, we've reached the end
-      if (trades.length < BATCH_SIZE) {
-        console.log('Reached end of trade history');
-        break;
-      }
-      
-      offset += BATCH_SIZE;
-      
-      // Small delay to avoid rate limiting
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-    } catch (error: any) {
-      // Handle the max offset exceeded error gracefully
-      if (error?.response?.status === 400 && error?.response?.data?.error?.includes('offset')) {
-        console.log(`Reached Polymarket API offset limit at offset ${offset}. This is the maximum history available.`);
-        break;
-      }
-      console.error('Error fetching trades:', error);
-      throw new Error(`Failed to fetch trades: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-  }
-  
-  if (offset > MAX_OFFSET && allTrades.length > 0) {
-    console.log(`⚠️ Note: Only the most recent ~${allTrades.length} trades were fetched due to API pagination limits.`);
+    
+    // If no activities were found or no older timestamp, we're done
+    if (oldestTimestamp === undefined || windowTradeCount === 0) break;
+    
+    // Set end timestamp for next window (exclusive: subtract 1 to avoid dupes)
+    endTimestamp = oldestTimestamp - 1;
+    console.log(`Window ${window + 1} complete. Cursor: end=${endTimestamp}`);
   }
   
   console.log(`Total trades fetched: ${allTrades.length}`);
