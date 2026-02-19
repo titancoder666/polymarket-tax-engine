@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { getUserProfile, getUserTrades, calculateTaxRecords, exportToCSV, type ProfileSummary, type TaxRecord } from '@/lib/polymarket'
 
 export default function Home() {
@@ -71,11 +72,16 @@ export default function Home() {
   return (
     <div className="min-h-screen p-8">
       <div className="max-w-6xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-2">Polymarket Tax & P/L Engine</h1>
-          <p className="text-gray-400">
-            Enter your Polymarket username or wallet address to view P&L and export tax-ready data
-          </p>
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-4xl font-bold mb-2">Polymarket Tax & P/L Engine</h1>
+            <p className="text-gray-400">
+              Enter your Polymarket username or wallet address to view P&L and export tax-ready data
+            </p>
+          </div>
+          <Link href="/tax-calculator" className="px-4 py-2 bg-violet-600 hover:bg-violet-700 rounded-lg text-sm font-semibold transition whitespace-nowrap">
+            📄 CSV Tax Calculator
+          </Link>
         </div>
 
         {/* Input Section */}

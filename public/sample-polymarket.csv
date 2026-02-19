@@ -1,0 +1,13 @@
+Timestamp,Market,Outcome,Type,Price,Quantity,Total,Fees
+2024-01-10 09:00:00,Will Biden win 2024 election,Yes,Buy,0.52,200,104.00,1.04
+2024-01-15 11:30:00,Will Biden win 2024 election,No,Buy,0.48,150,72.00,0.72
+2024-03-15 10:30:00,Will BTC hit 100k by Dec 2024,Yes,Buy,0.45,100,45.00,0.50
+2024-04-20 14:00:00,Will Biden win 2024 election,Yes,Sell,0.60,100,60.00,0.60
+2024-05-01 08:45:00,Will ETH hit 5k by 2024,Yes,Buy,0.30,500,150.00,1.50
+2024-06-20 14:15:00,Will BTC hit 100k by Dec 2024,Yes,Sell,0.72,50,36.00,0.40
+2024-07-10 16:00:00,Will Biden win 2024 election,Yes,Sell,0.45,100,45.00,0.45
+2024-08-15 12:00:00,Will ETH hit 5k by 2024,Yes,Sell,0.15,300,45.00,0.45
+2024-09-01 10:00:00,Will Biden win 2024 election,No,Sell,0.65,150,97.50,0.98
+2024-11-06 00:00:00,Will Biden win 2024 election,Yes,Settle,0.00,0,0.00,0.00
+2024-12-31 00:00:00,Will BTC hit 100k by Dec 2024,Yes,Settle,1.00,50,50.00,0.00
+2024-12-31 00:00:00,Will ETH hit 5k by 2024,Yes,Settle,0.00,200,0.00,0.00
