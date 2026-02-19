@@ -187,7 +187,7 @@ export default function Home() {
                           {fmt(pos.cashPnl)}
                         </td>
                         <td className={`px-4 py-3 text-sm text-right ${pos.percentPnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                          {(pos.percentPnl * 100).toFixed(1)}%
+                          {pos.percentPnl.toFixed(1)}%
                         </td>
                       </tr>
                     ))}
