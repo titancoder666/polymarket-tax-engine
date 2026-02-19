@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { getUserProfile, getUserTrades, calculateTaxRecords, type ProfileSummary, type TaxRecord } from '@/lib/polymarket'
+import { getUserProfile, calculateTaxRecords, type ProfileSummary, type PolymarketTrade, type TaxRecord } from '@/lib/polymarket'
 import { computeSummary, generateForm8949, generateScheduleD, generateTurboTaxCSV, type TaxSummary } from '@/lib/tax-engine'
 
 export default function Home() {
@@ -14,6 +14,7 @@ export default function Home() {
   const [taxSummary, setTaxSummary] = useState<TaxSummary | null>(null)
   const [error, setError] = useState('')
   const [showTaxDetails, setShowTaxDetails] = useState(false)
+  const [tradeCount, setTradeCount] = useState(0)
 
   const handleQuery = async () => {
     if (!username.trim()) {
@@ -33,10 +34,46 @@ export default function Home() {
       setProfile(profileData)
 
       setLoadingStage('Fetching trade history for tax calculation...')
-      const trades = await getUserTrades(username.trim())
+      setTradeCount(0)
+
+      // Use streaming API for trade fetching (supports 70K+ trades)
+      const trades: PolymarketTrade[] = []
+      const resp = await fetch(`/api/trades?wallet=${encodeURIComponent(profileData.wallet)}`)
+      const reader = resp.body?.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          buffer += decoder.decode(value, { stream: true })
+
+          const lines = buffer.split('\n\n')
+          buffer = lines.pop() || ''
+
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue
+            try {
+              const msg = JSON.parse(line.slice(6))
+              if (msg.type === 'progress') {
+                setLoadingStage(`Fetching trades... Window ${msg.window}: ${msg.totalTrades.toLocaleString()} trades found`)
+                setTradeCount(msg.totalTrades)
+              } else if (msg.type === 'trades') {
+                trades.push(...msg.trades)
+              } else if (msg.type === 'error') {
+                throw new Error(msg.message)
+              }
+            } catch (e) {
+              if (e instanceof Error && e.message !== 'Unexpected end of JSON input') throw e
+            }
+          }
+        }
+      }
 
       if (trades.length > 0) {
-        setLoadingStage('Calculating FIFO cost basis...')
+        setLoadingStage(`Calculating FIFO cost basis for ${trades.length.toLocaleString()} trades...`)
+        setTradeCount(trades.length)
         const records = calculateTaxRecords(trades)
         setTaxRecords(records)
         setTaxSummary(computeSummary(records))
@@ -206,7 +243,12 @@ export default function Home() {
             {taxSummary && taxRecords.length > 0 && (
               <>
                 <div className="bg-slate-800 rounded-lg p-6 mb-6">
-                  <h2 className="text-xl font-semibold mb-4">📋 Tax Reports — IRS Form 8949 / Schedule D</h2>
+                  <h2 className="text-xl font-semibold mb-2">📋 Tax Reports — IRS Form 8949 / Schedule D</h2>
+                  {tradeCount > 0 && (
+                    <p className="text-sm text-gray-400 mb-4">
+                      Based on {tradeCount.toLocaleString()} trades fetched via Activity API with time-windowed pagination
+                    </p>
+                  )}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                     <div className="bg-slate-900 rounded-lg p-4">
                       <div className="text-xs text-gray-400 uppercase mb-1">Total Lots</div>

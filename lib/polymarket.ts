@@ -208,7 +208,7 @@ export async function getUserTrades(usernameOrWallet: string): Promise<Polymarke
   const allTrades: PolymarketTrade[] = [];
   const BATCH_SIZE = 500;
   const MAX_OFFSET = 3000;
-  const MAX_WINDOWS = 20;
+  const MAX_WINDOWS = 50; // Support up to ~175K trades
   let endTimestamp: number | undefined = undefined;
   
   for (let window = 0; window < MAX_WINDOWS; window++) {
