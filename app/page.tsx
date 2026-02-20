@@ -41,6 +41,8 @@ const TAX_YEARS = [
   { value: 'all', label: 'All Time' },
 ]
 
+const PREVIEW_ROWS = 5
+
 export default function Home() {
   const daysLeft = useCountdown()
   const resultsRef = useRef<HTMLDivElement>(null)
@@ -58,6 +60,22 @@ export default function Home() {
   const [showTaxDetails, setShowTaxDetails] = useState(false)
   const [tradeCount, setTradeCount] = useState(0)
   const [allTrades, setAllTrades] = useState<PolymarketTrade[]>([])
+
+  /* ─── Paywall State ─── */
+  const [unlocked, setUnlocked] = useState(false)
+  const [promoCode, setPromoCode] = useState('')
+  const [showPromoInput, setShowPromoInput] = useState(false)
+  const [promoError, setPromoError] = useState('')
+
+  const handlePromoSubmit = () => {
+    if (promoCode.trim().toUpperCase() === 'BETA') {
+      setUnlocked(true)
+      setPromoError('')
+      setShowPromoInput(false)
+    } else {
+      setPromoError('Invalid promo code')
+    }
+  }
 
   /* ─── Filter records by tax year ─── */
   const filterByYear = (records: TaxRecord[], year: string) => {
@@ -153,14 +171,14 @@ export default function Home() {
           <h1 className="text-4xl sm:text-6xl font-extrabold text-center leading-tight tracking-tight">
             Polymarket Tax Reports
             <span className="block text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-blue-400">
-              In 60 Seconds. Free.
+              In 60 Seconds. No Signup.
             </span>
           </h1>
 
           <p className="mt-6 text-lg sm:text-xl text-gray-400 text-center max-w-2xl mx-auto">
-            No signup. No wallet connection. Just your username.
+            Preview your full tax report instantly — no wallet connection required.
             <br className="hidden sm:block" />
-            IRS Form 8949, Schedule D, and TurboTax CSV — instantly.
+            IRS Form 8949, Schedule D, and TurboTax CSV. Starting at <span className="text-white font-semibold">$49/tax year</span>.
           </p>
 
           {/* ─── Main Input ─── */}
@@ -211,7 +229,7 @@ export default function Home() {
             </div>
 
             <p className="mt-4 text-center text-xs text-gray-600">
-              Works with any public Polymarket profile · Handles 87,000+ trades · FIFO cost basis method
+              Free preview for every user · Handles 87,000+ trades · FIFO cost basis method
             </p>
           </div>
         </div>
@@ -225,12 +243,12 @@ export default function Home() {
             <div className="text-sm text-gray-500 mt-1">Reports Generated</div>
           </div>
           <div>
-            <div className="text-2xl sm:text-3xl font-bold text-white"><AnimatedNumber value={2100000} prefix="" /></div>
+            <div className="text-2xl sm:text-3xl font-bold text-white"><AnimatedNumber value={2100000} /></div>
             <div className="text-sm text-gray-500 mt-1">Trades Processed</div>
           </div>
           <div>
-            <div className="text-2xl sm:text-3xl font-bold text-green-400">$0</div>
-            <div className="text-sm text-gray-500 mt-1">Cost to You</div>
+            <div className="text-2xl sm:text-3xl font-bold text-green-400">$49</div>
+            <div className="text-sm text-gray-500 mt-1">Per Tax Year</div>
           </div>
           <div>
             <div className="text-2xl sm:text-3xl font-bold text-violet-400">&lt;60s</div>
@@ -239,14 +257,67 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ═══ COMPETITOR COMPARISON ═══ */}
+      {/* ═══ PRICING ═══ */}
       <section className="py-16 sm:py-20">
         <div className="max-w-4xl mx-auto px-4">
+          <h2 className="text-3xl sm:text-4xl font-bold text-center mb-4">Simple, Transparent Pricing</h2>
+          <p className="text-gray-400 text-center mb-12 max-w-xl mx-auto">
+            Preview your report for free. Pay only when you&apos;re ready to download.
+          </p>
+
+          <div className="grid sm:grid-cols-2 gap-6 max-w-3xl mx-auto">
+            {/* Free Tier */}
+            <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-8">
+              <div className="text-sm font-medium text-gray-400 uppercase tracking-wider mb-2">Free Preview</div>
+              <div className="text-4xl font-extrabold text-white mb-1">$0</div>
+              <div className="text-sm text-gray-500 mb-6">No signup required</div>
+              <ul className="space-y-3 text-sm text-gray-300">
+                {[
+                  'Full profile stats & P&L',
+                  'Trade count & tax summary',
+                  'Short-term & long-term breakdown',
+                  'Preview first 5 rows of Form 8949',
+                  'Open positions view',
+                ].map(f => (
+                  <li key={f} className="flex items-start gap-2"><span className="text-green-400 mt-0.5">✓</span>{f}</li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Paid Tier */}
+            <div className="bg-gradient-to-br from-violet-900/40 to-blue-900/30 border border-violet-500/30 rounded-2xl p-8 relative">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                <span className="px-3 py-1 bg-violet-600 text-white text-xs font-bold rounded-full uppercase tracking-wider">Most Popular</span>
+              </div>
+              <div className="text-sm font-medium text-violet-400 uppercase tracking-wider mb-2">Full Report</div>
+              <div className="text-4xl font-extrabold text-white mb-1">$49</div>
+              <div className="text-sm text-gray-400 mb-6">Per tax year · One-time payment</div>
+              <ul className="space-y-3 text-sm text-gray-300">
+                {[
+                  'Everything in Free, plus:',
+                  'Complete Form 8949 (all rows)',
+                  'Schedule D summary',
+                  'TurboTax CSV import',
+                  'Unlimited re-downloads',
+                ].map((f, i) => (
+                  <li key={f} className={`flex items-start gap-2 ${i === 0 ? 'text-gray-500' : ''}`}>
+                    {i === 0 ? '' : <span className="text-violet-400 mt-0.5">✓</span>}{f}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══ COMPETITOR COMPARISON ═══ */}
+      <section className="py-16 sm:py-20 bg-slate-900/20">
+        <div className="max-w-4xl mx-auto px-4">
           <h2 className="text-3xl sm:text-4xl font-bold text-center mb-4">
-            Why Pay <span className="text-red-400 line-through">$99</span> for Tax Reports?
+            Half the Price. Twice the Speed.
           </h2>
           <p className="text-gray-400 text-center mb-12 max-w-xl mx-auto">
-            Other tools charge premium prices for what should be simple. We built the tool we wanted to use ourselves.
+            $49 vs $99 for PolyTax. Fraction of Blockpit. No signup, no wallet connection.
           </p>
 
           <div className="overflow-x-auto">
@@ -263,7 +334,8 @@ export default function Home() {
               </thead>
               <tbody className="text-sm">
                 {[
-                  ['Price', '✅ Free', '❌ $99', '❌ €49–€549'],
+                  ['Price', '✅ $49/year', '❌ $99', '❌ €49–€549'],
+                  ['Free Preview', '✅ Full summary + preview', '❌ None', '❌ None'],
                   ['Signup Required', '✅ None', '❌ Yes', '❌ Yes + wallet connect'],
                   ['Time to Report', '✅ ~60 seconds', '⚠️ Minutes', '❌ 10+ minutes setup'],
                   ['Form 8949', '✅', '✅', '✅'],
@@ -294,8 +366,8 @@ export default function Home() {
           <div className="grid sm:grid-cols-3 gap-8">
             {[
               { step: '1', icon: '👤', title: 'Enter Username', desc: 'Type your Polymarket username. No wallet, no signup, no passwords.' },
-              { step: '2', icon: '⚡', title: 'We Crunch the Numbers', desc: 'FIFO cost basis across all your trades — even 87K+ — in seconds.' },
-              { step: '3', icon: '📋', title: 'Download Reports', desc: 'IRS Form 8949, Schedule D, TurboTax CSV. Ready to file.' },
+              { step: '2', icon: '⚡', title: 'Preview for Free', desc: 'See your full P&L, tax summary, and a preview of Form 8949 — instantly.' },
+              { step: '3', icon: '📋', title: 'Download for $49', desc: 'Unlock complete Form 8949, Schedule D, and TurboTax CSV. Ready to file.' },
             ].map(s => (
               <div key={s.step} className="text-center">
                 <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-3xl">
@@ -333,13 +405,6 @@ export default function Home() {
         {profile && (
           <section className="py-8 px-4">
             <div className="max-w-6xl mx-auto">
-              {/* Savings Banner */}
-              <div className="mb-6 text-center">
-                <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-green-500/10 border border-green-500/30">
-                  <span className="text-green-400 font-semibold">💰 You just saved $99 compared to PolyTax</span>
-                </div>
-              </div>
-
               {/* Profile Card */}
               <div className="bg-slate-900/80 backdrop-blur border border-slate-800 rounded-2xl p-6 mb-6">
                 <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
@@ -399,7 +464,7 @@ export default function Home() {
                       </div>
                     </div>
 
-                    {/* Summary Cards */}
+                    {/* Summary Cards — FREE */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
                       {[
                         { label: 'Total Lots', value: taxSummary.totalLots.toLocaleString() },
@@ -414,7 +479,7 @@ export default function Home() {
                       ))}
                     </div>
 
-                    {/* Breakdown */}
+                    {/* Breakdown — FREE */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
                       {[
                         { label: 'ST Gains', value: fmt(taxSummary.shortTermGain), color: 'text-green-400' },
@@ -429,27 +494,94 @@ export default function Home() {
                       ))}
                     </div>
 
-                    {/* Download Buttons */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      <button
-                        onClick={() => download(generateForm8949(taxRecords), `${slug}-form-8949-${taxYear}.csv`)}
-                        className="px-4 py-3.5 bg-violet-600 hover:bg-violet-500 rounded-xl text-sm font-bold transition text-center shadow-lg shadow-violet-500/10"
-                      >
-                        📋 Download Form 8949 CSV
-                      </button>
-                      <button
-                        onClick={() => download(generateScheduleD(taxSummary), `${slug}-schedule-d-${taxYear}.csv`)}
-                        className="px-4 py-3.5 bg-blue-600 hover:bg-blue-500 rounded-xl text-sm font-bold transition text-center shadow-lg shadow-blue-500/10"
-                      >
-                        📊 Download Schedule D Summary
-                      </button>
-                      <button
-                        onClick={() => download(generateTurboTaxCSV(taxRecords), `${slug}-turbotax-${taxYear}.csv`)}
-                        className="px-4 py-3.5 bg-green-600 hover:bg-green-500 rounded-xl text-sm font-bold transition text-center shadow-lg shadow-green-500/10"
-                      >
-                        💰 Download TurboTax CSV
-                      </button>
-                    </div>
+                    {/* Download Buttons — PAYWALLED */}
+                    {unlocked ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <button
+                          onClick={() => download(generateForm8949(taxRecords), `${slug}-form-8949-${taxYear}.csv`)}
+                          className="px-4 py-3.5 bg-violet-600 hover:bg-violet-500 rounded-xl text-sm font-bold transition text-center shadow-lg shadow-violet-500/10"
+                        >
+                          📋 Download Form 8949 CSV
+                        </button>
+                        <button
+                          onClick={() => download(generateScheduleD(taxSummary), `${slug}-schedule-d-${taxYear}.csv`)}
+                          className="px-4 py-3.5 bg-blue-600 hover:bg-blue-500 rounded-xl text-sm font-bold transition text-center shadow-lg shadow-blue-500/10"
+                        >
+                          📊 Download Schedule D Summary
+                        </button>
+                        <button
+                          onClick={() => download(generateTurboTaxCSV(taxRecords), `${slug}-turbotax-${taxYear}.csv`)}
+                          className="px-4 py-3.5 bg-green-600 hover:bg-green-500 rounded-xl text-sm font-bold transition text-center shadow-lg shadow-green-500/10"
+                        >
+                          💰 Download TurboTax CSV
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          {[
+                            { icon: '📋', label: 'Form 8949 CSV', color: 'from-violet-600 to-violet-700' },
+                            { icon: '📊', label: 'Schedule D Summary', color: 'from-blue-600 to-blue-700' },
+                            { icon: '💰', label: 'TurboTax CSV', color: 'from-green-600 to-green-700' },
+                          ].map(btn => (
+                            <button
+                              key={btn.label}
+                              onClick={() => setShowPromoInput(true)}
+                              className={`px-4 py-3.5 bg-gradient-to-r ${btn.color} rounded-xl text-sm font-bold transition text-center opacity-90 hover:opacity-100 relative overflow-hidden`}
+                            >
+                              <span className="flex items-center justify-center gap-2">
+                                {btn.icon} {btn.label}
+                                <span className="text-xs opacity-75 bg-black/20 px-2 py-0.5 rounded-full">$49</span>
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Promo Code / Buy Section */}
+                        <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
+                          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                            <div className="text-sm text-gray-400">
+                              <span className="text-white font-semibold">$49</span> for all three reports · {taxYear === 'all' ? 'All years' : `${taxYear} tax year`} · One-time payment
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {showPromoInput ? (
+                                <>
+                                  <input
+                                    type="text"
+                                    value={promoCode}
+                                    onChange={e => setPromoCode(e.target.value)}
+                                    onKeyDown={e => e.key === 'Enter' && handlePromoSubmit()}
+                                    placeholder="Promo code"
+                                    className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 w-32"
+                                  />
+                                  <button
+                                    onClick={handlePromoSubmit}
+                                    className="px-4 py-2 bg-violet-600 hover:bg-violet-500 rounded-lg text-sm font-medium transition"
+                                  >
+                                    Apply
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <button
+                                    onClick={() => setShowPromoInput(true)}
+                                    className="text-xs text-gray-500 hover:text-gray-400 transition underline"
+                                  >
+                                    Have a promo code?
+                                  </button>
+                                  <button
+                                    className="px-6 py-2.5 bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-500 hover:to-blue-500 rounded-lg text-sm font-bold transition shadow-lg shadow-violet-500/20"
+                                  >
+                                    Buy Report — $49
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                          {promoError && <p className="mt-2 text-xs text-red-400">{promoError}</p>}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Positions Table */}
@@ -494,7 +626,7 @@ export default function Home() {
                     </div>
                   </div>
 
-                  {/* Tax Lots Table */}
+                  {/* Tax Lots Table — PREVIEW + PAYWALL */}
                   <div className="bg-slate-900/80 backdrop-blur border border-slate-800 rounded-2xl overflow-hidden mb-6">
                     <div className="p-6 flex justify-between items-center">
                       <h2 className="text-xl font-semibold">Tax Lots ({taxRecords.length.toLocaleString()})</h2>
@@ -506,34 +638,80 @@ export default function Home() {
                       </button>
                     </div>
                     {showTaxDetails && (
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                          <thead className="bg-slate-800">
-                            <tr>
-                              {['Description', 'Acquired', 'Sold', 'Proceeds', 'Cost Basis', 'Gain/Loss', 'Term'].map(h => (
-                                <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">{h}</th>
-                              ))}
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-800">
-                            {taxRecords.slice(0, 100).map((r, idx) => (
-                              <tr key={idx} className="hover:bg-slate-800/50">
-                                <td className="px-4 py-3 max-w-xs truncate">{r.description}</td>
-                                <td className="px-4 py-3">{r.dateAcquired}</td>
-                                <td className="px-4 py-3">{r.dateSold}</td>
-                                <td className="px-4 py-3 text-right">{fmt(r.proceeds)}</td>
-                                <td className="px-4 py-3 text-right">{fmt(r.costBasis)}</td>
-                                <td className={`px-4 py-3 text-right font-semibold ${r.gainLoss >= 0 ? 'text-green-400' : 'text-red-400'}`}>{fmt(r.gainLoss)}</td>
-                                <td className="px-4 py-3">
-                                  <span className={`px-2 py-0.5 text-xs rounded ${r.termType === 'Short-term' ? 'bg-orange-500/20 text-orange-400' : 'bg-blue-500/20 text-blue-400'}`}>
-                                    {r.termType}
-                                  </span>
-                                </td>
+                      <div className="relative">
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead className="bg-slate-800">
+                              <tr>
+                                {['Description', 'Acquired', 'Sold', 'Proceeds', 'Cost Basis', 'Gain/Loss', 'Term'].map(h => (
+                                  <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">{h}</th>
+                                ))}
                               </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                        {taxRecords.length > 100 && (
+                            </thead>
+                            <tbody className="divide-y divide-slate-800">
+                              {/* Free preview rows */}
+                              {taxRecords.slice(0, unlocked ? 100 : PREVIEW_ROWS).map((r, idx) => (
+                                <tr key={idx} className="hover:bg-slate-800/50">
+                                  <td className="px-4 py-3 max-w-xs truncate">{r.description}</td>
+                                  <td className="px-4 py-3">{r.dateAcquired}</td>
+                                  <td className="px-4 py-3">{r.dateSold}</td>
+                                  <td className="px-4 py-3 text-right">{fmt(r.proceeds)}</td>
+                                  <td className="px-4 py-3 text-right">{fmt(r.costBasis)}</td>
+                                  <td className={`px-4 py-3 text-right font-semibold ${r.gainLoss >= 0 ? 'text-green-400' : 'text-red-400'}`}>{fmt(r.gainLoss)}</td>
+                                  <td className="px-4 py-3">
+                                    <span className={`px-2 py-0.5 text-xs rounded ${r.termType === 'Short-term' ? 'bg-orange-500/20 text-orange-400' : 'bg-blue-500/20 text-blue-400'}`}>
+                                      {r.termType}
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {/* Blur overlay for locked rows */}
+                        {!unlocked && taxRecords.length > PREVIEW_ROWS && (
+                          <div className="relative">
+                            {/* Blurred fake rows */}
+                            <div className="overflow-hidden select-none pointer-events-none" style={{ filter: 'blur(6px)', opacity: 0.4 }}>
+                              <table className="w-full text-sm">
+                                <tbody className="divide-y divide-slate-800">
+                                  {taxRecords.slice(PREVIEW_ROWS, PREVIEW_ROWS + 5).map((r, idx) => (
+                                    <tr key={idx}>
+                                      <td className="px-4 py-3 max-w-xs truncate">{r.description}</td>
+                                      <td className="px-4 py-3">{r.dateAcquired}</td>
+                                      <td className="px-4 py-3">{r.dateSold}</td>
+                                      <td className="px-4 py-3 text-right">{fmt(r.proceeds)}</td>
+                                      <td className="px-4 py-3 text-right">{fmt(r.costBasis)}</td>
+                                      <td className="px-4 py-3 text-right font-semibold">{fmt(r.gainLoss)}</td>
+                                      <td className="px-4 py-3">{r.termType}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+
+                            {/* Unlock overlay */}
+                            <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-t from-slate-950 via-slate-950/80 to-transparent">
+                              <div className="text-center">
+                                <div className="text-lg font-bold text-white mb-2">
+                                  🔒 {(taxRecords.length - PREVIEW_ROWS).toLocaleString()} more tax lots
+                                </div>
+                                <p className="text-sm text-gray-400 mb-4">
+                                  Unlock the full Form 8949 report for ${49}
+                                </p>
+                                <button
+                                  onClick={() => setShowPromoInput(true)}
+                                  className="px-6 py-2.5 bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-500 hover:to-blue-500 rounded-lg text-sm font-bold transition shadow-lg shadow-violet-500/20"
+                                >
+                                  Unlock Full Report — $49
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {unlocked && taxRecords.length > 100 && (
                           <div className="p-4 text-center text-sm text-gray-500">
                             Showing first 100 of {taxRecords.length.toLocaleString()} records. Download reports for complete data.
                           </div>
@@ -571,12 +749,16 @@ export default function Home() {
                 a: 'We fetch all your trades directly from Polymarket\'s API, then apply FIFO (First In, First Out) cost basis matching — the same method the IRS expects. Each buy-sell pair becomes a lot on Form 8949.'
               },
               {
-                q: 'Is this really free? What\'s the catch?',
-                a: 'No catch. We built this for ourselves and decided to share it. The code is open source. We don\'t store your data, sell anything, or require an account.'
+                q: 'What do I get for free?',
+                a: 'Everything except the downloadable reports. You can see your full profile stats, P&L, trade count, complete tax summary (short-term gains, long-term gains, net totals), and a preview of your Form 8949 data. The $49 payment unlocks downloadable Form 8949, Schedule D, and TurboTax CSV files.'
+              },
+              {
+                q: 'Why $49? How does that compare to competitors?',
+                a: 'PolyTax charges $99. Blockpit starts at €49 and goes up to €549. At $49, we\'re half the price of PolyTax with no signup required, and a fraction of Blockpit\'s cost. Plus you get to preview your data before you pay.'
               },
               {
                 q: 'What forms do I need for filing?',
-                a: 'Form 8949 lists each individual trade. Schedule D summarizes your totals. If you use TurboTax, download our TurboTax CSV for direct import.'
+                a: 'Form 8949 lists each individual trade. Schedule D summarizes your totals. If you use TurboTax, download our TurboTax CSV for direct import. All three are included in the $49 price.'
               },
               {
                 q: 'Can this handle accounts with lots of trades?',
@@ -585,6 +767,10 @@ export default function Home() {
               {
                 q: 'What\'s the difference between 2024 and 2025 tax years?',
                 a: '2024 taxes are due April 15, 2025 (or with extension). 2025 taxes are due April 15, 2026. Use the tax year filter to generate reports for the specific year you\'re filing.'
+              },
+              {
+                q: 'Do you store my data?',
+                a: 'No. We don\'t store any user data. Your trades are fetched in real-time from Polymarket\'s public API and processed in your browser. Nothing is saved on our servers.'
               },
             ].map((faq, i) => (
               <div key={i} className="bg-slate-900/50 border border-slate-800/50 rounded-xl p-6">
@@ -601,12 +787,12 @@ export default function Home() {
         <section className="py-16 border-t border-slate-800/50">
           <div className="max-w-2xl mx-auto px-4 text-center">
             <h2 className="text-3xl font-bold mb-4">Ready to File Your Polymarket Taxes?</h2>
-            <p className="text-gray-400 mb-8">Scroll up, enter your username, and get your report in 60 seconds.</p>
+            <p className="text-gray-400 mb-8">Preview your report for free in 60 seconds. No signup required.</p>
             <button
               onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
               className="px-8 py-3 bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-500 hover:to-blue-500 rounded-xl font-bold text-lg transition shadow-lg shadow-violet-500/20"
             >
-              🚀 Get Your Free Tax Report
+              🚀 Preview Your Tax Report
             </button>
           </div>
         </section>
