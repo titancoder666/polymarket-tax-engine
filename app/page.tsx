@@ -239,12 +239,12 @@ export default function Home() {
       <section className="border-y border-slate-800/50 bg-slate-900/30">
         <div className="max-w-5xl mx-auto px-4 py-8 grid grid-cols-2 sm:grid-cols-4 gap-6 text-center">
           <div>
-            <div className="text-2xl sm:text-3xl font-bold text-white"><AnimatedNumber value={12847} /></div>
-            <div className="text-sm text-gray-500 mt-1">Reports Generated</div>
+            <div className="text-2xl sm:text-3xl font-bold text-white"><AnimatedNumber value={175000} prefix="" />+</div>
+            <div className="text-sm text-gray-500 mt-1">Max Trades Supported</div>
           </div>
           <div>
-            <div className="text-2xl sm:text-3xl font-bold text-white"><AnimatedNumber value={2100000} /></div>
-            <div className="text-sm text-gray-500 mt-1">Trades Processed</div>
+            <div className="text-2xl sm:text-3xl font-bold text-white">$50</div>
+            <div className="text-sm text-gray-500 mt-1">Saved vs PolyTax</div>
           </div>
           <div>
             <div className="text-2xl sm:text-3xl font-bold text-green-400">$49</div>
