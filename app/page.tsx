@@ -66,6 +66,8 @@ export default function Home() {
   const [promoCode, setPromoCode] = useState('')
   const [showPromoInput, setShowPromoInput] = useState(false)
   const [promoError, setPromoError] = useState('')
+  const [showDevPanel, setShowDevPanel] = useState(false)
+  const [devPassword, setDevPassword] = useState('')
 
   const handlePromoSubmit = () => {
     if (promoCode.trim().toUpperCase() === 'BETA') {
@@ -806,8 +808,41 @@ export default function Home() {
           <div className="flex gap-6">
             <Link href="/tax-calculator" className="hover:text-violet-400 transition">CSV Upload Tool</Link>
             <a href="https://github.com/titancoder666/polymarket-tax-engine" target="_blank" rel="noopener" className="hover:text-violet-400 transition">GitHub</a>
+            <button
+              onClick={() => setShowDevPanel(!showDevPanel)}
+              className="text-gray-700 hover:text-gray-500 transition text-xs"
+              title="Settings"
+            >⚙️</button>
           </div>
         </div>
+        {showDevPanel && (
+          <div className="max-w-sm mx-auto mt-4 px-4">
+            <div className="bg-slate-900/80 border border-slate-800/50 rounded-lg p-3">
+              <div className="flex items-center gap-2">
+                <input
+                  type="password"
+                  value={devPassword}
+                  onChange={e => setDevPassword(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      if (devPassword === '31586945') { setUnlocked(true); setShowDevPanel(false); setDevPassword('') }
+                      else { setDevPassword(''); }
+                    }
+                  }}
+                  placeholder="Access code"
+                  className="flex-1 bg-slate-950 border border-slate-700 rounded px-2 py-1.5 text-xs text-gray-400 placeholder-gray-700 focus:outline-none focus:border-slate-600"
+                />
+                <button
+                  onClick={() => {
+                    if (devPassword === '31586945') { setUnlocked(true); setShowDevPanel(false); setDevPassword('') }
+                    else { setDevPassword(''); }
+                  }}
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded text-xs text-gray-500 transition"
+                >→</button>
+              </div>
+            </div>
+          </div>
+        )}
       </footer>
     </div>
   )
