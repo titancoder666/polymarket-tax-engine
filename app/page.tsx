@@ -570,6 +570,7 @@ export default function Home() {
                                     Have a promo code?
                                   </button>
                                   <button
+                                    onClick={() => alert('Stripe payment coming soon! For early access, contact us on Twitter @polymarkettax or use a promo code if you have one.')}
                                     className="px-6 py-2.5 bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-500 hover:to-blue-500 rounded-lg text-sm font-bold transition shadow-lg shadow-violet-500/20"
                                   >
                                     Buy Report — $49
