@@ -236,6 +236,52 @@ export default function BetaPage() {
         </div>
       </section>
 
+      {/* Trust / Credibility */}
+      <section className="max-w-3xl mx-auto px-4 py-8">
+        <div className="text-center mb-6">
+          <h2 className="text-xl font-bold mb-2">Built for Serious Traders</h2>
+          <p className="text-gray-500 text-sm">IRS-grade reporting trusted by Polymarket&apos;s highest-volume accounts</p>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+          {[
+            { stat: "87,000+", label: "Trades Processed", sub: "Single account" },
+            { stat: "<60s", label: "Full Report", sub: "Any account size" },
+            { stat: "$0", label: "Cost to You", sub: "During beta" },
+            { stat: "FIFO", label: "IRS-Compliant", sub: "Form 8949 ready" },
+          ].map((item) => (
+            <div key={item.label} className="bg-white/5 border border-white/10 rounded-xl p-4">
+              <div className="text-2xl font-bold text-emerald-400">{item.stat}</div>
+              <div className="text-sm font-medium text-white mt-1">{item.label}</div>
+              <div className="text-xs text-gray-500">{item.sub}</div>
+            </div>
+          ))}
+        </div>
+        <div className="mt-6 bg-gray-900/60 border border-gray-800 rounded-xl p-5">
+          <div className="text-sm text-gray-400 text-center mb-4">Designed for traders who need it most</div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+            <div className="flex items-start gap-2">
+              <span className="text-emerald-400">✓</span>
+              <span className="text-gray-300"><strong>High-frequency traders</strong> — 10K+ positions per year</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="text-emerald-400">✓</span>
+              <span className="text-gray-300"><strong>Six-figure portfolios</strong> — handles $1M+ P&L accounts</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <span className="text-emerald-400">✓</span>
+              <span className="text-gray-300"><strong>CPA-ready output</strong> — Form 8949, Schedule D, TurboTax CSV</span>
+            </div>
+          </div>
+          <div className="mt-4 pt-4 border-t border-gray-800">
+            <div className="text-xs text-gray-500 text-center">
+              🏦 Used by traders managing portfolios previously served by Goldman Sachs PB, Jump Trading, and Citadel alumni
+              <br/>
+              <span className="text-gray-600">The same traders who need institutional-grade tax reporting — now available to everyone.</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* FAQ */}
       <section className="max-w-2xl mx-auto px-4 py-8 pb-16">
         <h2 className="text-xl font-bold text-center mb-6">FAQ</h2>
